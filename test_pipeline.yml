@@ -1,0 +1,124 @@
+# .github/workflows/test_pipeline.yml
+
+name: Pipeline de Testes Automatizados GitHub Actions
+
+# Dispara o workflow em cada push para os branches principais
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+
+jobs:
+  # Job para Testes de API
+  api_tests:
+    name: Executar Testes de API
+    runs-on: ubuntu-latest #(Linux)
+
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v4 # Ação para clonar o repositório
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' #versão node
+
+      - name: Instalar Newman (para Postman Collections)
+        run: npm install -g newman # Instala a ferramenta Newman globalmente para testes api com postman
+
+      - name: Instalar dependências do projeto (se houver scripts de API em Python, etc.)
+        run: echo "Nenhuma dependência adicional para este exemplo de API com Newman."
+
+      - name: Executar Testes de API com Newman
+        # Assumindo que você tem uma coleção Postman 'api_collection.json'
+        # e um arquivo de variáveis de ambiente 'api_env.json'
+        run: newman run api_collection.json -e api_env.json --reporters cli,junit --reporter-junit-export test-results/api-results.xml
+        # O comando acima executa a coleção, exporta resultados para JUnit XML
+
+      - name: Publicar Resultados dos Testes de API
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-results
+          path: test-results/api-results.xml
+          retention-days: 5 # Mantém os artefatos por 5 dias
+
+  # Job para Testes E2E (End-to-End) com Cypress
+  e2e_tests:
+    name: Executar Testes E2E
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Instalar dependências do Cypress
+        # Assumindo que Cypress está configurado no seu package.json
+        run: npm ci 
+      - name: Executar Testes E2E com Cypress
+        run: npm run cypress:run # Assumindo um script 'cypress:run' no package.json
+
+      - name: Publicar Resultados dos Testes E2E
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: cypress/results/**/*.xml # Ou onde seus resultados JUnit são gerados
+          retention-days: 5
+
+  # Job para Testes Mobile (Exemplo Simplificado com Appium/Android Emulator)
+
+  mobile_tests:
+    name: Executar Testes Mobile
+    runs-on: ubuntu-latest 
+
+    steps:
+      - name: Checkout do Código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java (necessário para Android SDK e Appium)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '11'
+
+      - name: Configurar Node.js (necessário para Appium)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Instalar Appium
+        run: npm install -g appium # Instala Appium 
+
+      - name: Instalar dependências do projeto de teste mobile #inserir abaixo caso possuir dependencias para instalar
+        run: echo "Instalando dependências de teste mobile..."
+
+      - name: Configurar Emulador Android
+        #caso precisar emular
+        run: |
+          echo "Configurando emulador Android..."
+          # Exemplo de comando para criar e iniciar um AVD (requer Android SDK instalado)
+          # echo "no" | android create avd --force -n test_avd -t "android-30" --abi "google_apis/x86"
+          # emulator -avd test_avd -no-audio -no-window &
+          # adb wait-for-device shell 'while [[ -z $(getprop sys.boot_completed) ]]; do sleep 1; done;'
+          echo "Emulador Android configurado (conceitual)."
+
+      - name: Executar Testes Mobile com Appium
+        # Assumindo que você tem um script de teste mobile 'run_mobile_tests.py'
+        run: python run_mobile_tests.py 
+
+      - name: Publicar Resultados dos Testes Mobile
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-test-results
+          path: mobile-test-results/**/*.xml # Onde seus resultados JUnit são gerados
+          retention-days: 5
+
